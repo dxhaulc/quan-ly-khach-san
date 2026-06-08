@@ -19,6 +19,7 @@ const branchRoute = require('./routes/branch.routes');
 const profileRoute = require('./routes/profile.routes'); 
 const dashboardRoute = require('./routes/dashboard.routes'); 
 const checkInRoutes = require('./routes/checkin.routes'); 
+const tenantRoutes = require('./routes/tenant.routes'); 
 
 
 
@@ -45,6 +46,7 @@ app.use('/api/admin/branches', branchRoute);
 app.use('/api/profile', profileRoute);
 app.use('/api/dashboard', dashboardRoute);
 app.use('/api/checkins', checkInRoutes);
+app.use('/api/tenant', tenantRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

@@ -342,6 +342,7 @@ const updateBookingDetail = async (req, res) => {
     priceType,
     discountValue,
     discountType,
+    note
   } = req.body;
 
   const transaction = new sql.Transaction();
@@ -355,6 +356,7 @@ const updateBookingDetail = async (req, res) => {
     request.input("priceType", sql.VarChar(20), priceType || "day");
     request.input("discountValue", sql.Decimal(18, 2), discountValue || 0);
     request.input("discountType", sql.VarChar(10), discountType || "VND");
+    request.input("note", sql.NVarChar(255), note);
 
     const checkOwner = await request.query(`
       SELECT bd.Id, bd.RoomId, bd.ExpectedCheckIn 
@@ -393,7 +395,8 @@ const updateBookingDetail = async (req, res) => {
           RoomPrice = @roomPrice,
           PriceType = @priceType,
           DiscountValue = @discountValue,
-          DiscountType = @discountType
+          DiscountType = @discountType,
+          Note = @note
       WHERE Id = @bookingDetailId
     `);
 

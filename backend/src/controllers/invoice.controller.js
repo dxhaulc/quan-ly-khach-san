@@ -25,9 +25,17 @@ const getInvoices = async (req, res) => {
     let whereConditions = ["i.TenantId = @tenantId", "b.BranchId = @branchId"];
 
     if (startDate && endDate) {
-      request.input("startDate", sql.DateTime, startDate + " 00:00:00");
-      request.input("endDate", sql.DateTime, endDate + " 23:59:59");
-      whereConditions.push("i.PaymentDate BETWEEN @startDate AND @endDate");
+      const dStart = new Date(startDate);
+      const dEnd = new Date(endDate);
+
+      if (
+        !isNaN(dStart) && dStart.getFullYear() <= 9999 &&
+        !isNaN(dEnd) && dEnd.getFullYear() <= 9999
+      ) {
+        request.input("startDate", sql.DateTime, startDate + " 00:00:00");
+        request.input("endDate", sql.DateTime, endDate + " 23:59:59");
+        whereConditions.push("i.PaymentDate BETWEEN @startDate AND @endDate");
+      }
     }
 
     if (search) {
@@ -103,7 +111,7 @@ const getInvoiceDetail = async (req, res) => {
     request.input("branchId", sql.Int, branchId);
 
     const invoiceRes = await request.query(`
-      SELECT i.*, c.FullName AS CustomerName, u.FullName AS StaffName, c.Phone AS CustomerPhone, b.DepositAmount, b.Note AS BookingNote
+      SELECT i.*, c.FullName AS CustomerName, u.FullName AS StaffName, c.Phone AS CustomerPhone, b.DepositAmount, b.Note AS BookingNote, b.Status
       FROM Invoices i
       INNER JOIN Bookings b ON i.BookingId = b.Id
       LEFT JOIN Customers c ON b.CustomerId = c.Id
