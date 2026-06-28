@@ -49,7 +49,7 @@ const getAllRoomTypes = async (req, res) => {
     request.input("limit", sql.Int, limit);
 
     const roomTypesResult = await request.query(`
-      SELECT Id, TypeName, LimitAdult, LimitChildren, ExtraPersonPrice, LateCheckOutFeePerHour 
+      SELECT Id, TypeName, LimitAdult, LimitChildren, ExtraPersonPrice, LateCheckOutFeePerHour ,IsDelete
       FROM RoomTypes 
       ${whereClause}
       ORDER BY Id ASC 

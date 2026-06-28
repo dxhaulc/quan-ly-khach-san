@@ -193,7 +193,7 @@ const getTimeline = async (req, res) => {
       SELECT 
         bd.Id, bd.Id AS BookingDetailId, bd.BookingId, bd.RoomId, bd.PriceType, bd.DiscountValue, bd.DiscountType,
         bd.ExpectedCheckIn, bd.ExpectedCheckOut, bd.Status AS BookingStatus, b.DepositAmount, bd.Note, bd.ActualCheckIn,
-        c.FullName AS GuestName
+        c.FullName AS GuestName, c.Phone AS GuestPhone
       FROM BookingDetails bd
       INNER JOIN Bookings b ON bd.BookingId = b.Id
       LEFT JOIN Customers c ON b.CustomerId = c.Id

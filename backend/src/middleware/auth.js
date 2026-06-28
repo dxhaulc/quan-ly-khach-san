@@ -24,12 +24,20 @@ const checkRole = (allowedRoles) => {
   return (req, res, next) => {
     if (req.user.isAdmin) return next();
 
-    const hasRole = req.user.branchRoles.some((br) =>
-      allowedRoles.includes(br.RoleName),
+    const currentBranchId = req.headers["x-branch-id"];
+
+    if (!currentBranchId) {
+      return res.status(400).json({ message: "Thiếu thông tin chi nhánh đang thao tác!" });
+    }
+
+    const hasRoleInCurrentBranch = req.user.branchRoles.some(
+      (br) => 
+        String(br.BranchId).toLowerCase() === String(currentBranchId).toLowerCase() && 
+        allowedRoles.includes(br.RoleName)
     );
 
-    if (!hasRole) {
-      return res.status(403).json({ message: "Bạn không có quyền!" });
+    if (!hasRoleInCurrentBranch) {
+      return res.status(403).json({ message: "Bạn không có quyền thực hiện thao tác này tại chi nhánh hiện tại!" });
     }
 
     next();

@@ -162,85 +162,123 @@ const createRoom = async (req, res) => {
 };
 
 const updateRoom = async (req, res) => {
-    const { id } = req.params;
-    const branchId = req.headers['x-branch-id'];
-    const { roomNumber, roomTypeId, status, images, isDelete } = req.body;
+  const { id } = req.params;
+  const branchId = req.headers["x-branch-id"];
+  const { roomNumber, roomTypeId, status, images, isDelete } = req.body;
 
-    if (!branchId) return res.status(400).json({ message: 'Thiếu thông tin chi nhánh.' });
+  if (!branchId)
+    return res.status(400).json({ message: "Thiếu thông tin chi nhánh." });
 
-    const transaction = new sql.Transaction();
+  const transaction = new sql.Transaction();
 
-    try {
-        await transaction.begin();
-        
-        const request = new sql.Request(transaction);
-        request.input('id', sql.Int, id);
-        request.input('branchId', sql.Int, branchId);
-        request.input('roomNumber', sql.VarChar, roomNumber);
-        request.input('roomTypeId', sql.Int, roomTypeId);
-        request.input('status', sql.VarChar, status);
-        request.input('isDelete', sql.Bit, isDelete !== undefined ? isDelete : 0);
+  try {
+    await transaction.begin();
 
-        await request.query(`
-            UPDATE Rooms 
-            SET RoomNumber = @roomNumber, 
-                RoomTypeId = @roomTypeId, 
-                Status = @status,
-                IsDelete = @isDelete
-            WHERE Id = @id AND BranchId = @branchId
-        `);
+    const request = new sql.Request(transaction);
+    request.input("id", sql.Int, id);
+    request.input("branchId", sql.Int, branchId);
+    request.input("roomNumber", sql.VarChar, roomNumber);
+    request.input("roomTypeId", sql.Int, roomTypeId);
+    request.input("status", sql.VarChar, status);
+    request.input("isDelete", sql.Bit, isDelete !== undefined ? isDelete : 0);
 
-        if (images !== undefined) {
-            const deleteImgReq = new sql.Request(transaction);
-            deleteImgReq.input("roomId", sql.Int, id);
-            await deleteImgReq.query(`DELETE FROM RoomImages WHERE RoomId = @roomId`);
+    if (isDelete === 1 || isDelete === true) {
+      const checkResult = await request.query(`
+        SELECT TOP 1 bd.Id, bd.Status
+        FROM BookingDetails bd
+        WHERE bd.RoomId = @id
+          AND bd.Status IN ('InUse', 'Reserved')
+      `);
 
-            if (images.length > 0) {
-                for (let i = 0; i < images.length; i++) {
-                    const imgReq = new sql.Request(transaction);
-                    imgReq.input("roomId", sql.Int, id);
-                    imgReq.input("imageUrl", sql.NVarChar, images[i]);
-                    imgReq.input("isPrimary", sql.Bit, i === 0 ? 1 : 0);
-
-                    await imgReq.query(`
-                        INSERT INTO RoomImages (RoomId, ImageUrl, IsPrimary)
-                        VALUES (@roomId, @imageUrl, @isPrimary)
-                    `);
-                }
-            }
-        }
-
-        await transaction.commit();
-        res.json({ message: 'Cập nhật phòng thành công!' });
-    } catch (err) {
-        console.error(err);
+      if (checkResult.recordset.length > 0) {
+        const status = checkResult.recordset[0].Status;
+        const message =
+          status === "InUse"
+            ? "Phòng đang có khách lưu trú, không thể ngừng hoạt động!"
+            : "Phòng đang có đơn đặt trước, không thể ngừng hoạt động!";
         await transaction.rollback();
-        res.status(500).json({ message: 'Lỗi server khi cập nhật phòng' });
+        return res.status(400).json({ message });
+      }
     }
+
+    await request.query(`
+      UPDATE Rooms 
+      SET RoomNumber = @roomNumber, 
+          RoomTypeId = @roomTypeId, 
+          Status = @status,
+          IsDelete = @isDelete
+      WHERE Id = @id AND BranchId = @branchId
+    `);
+
+    if (images !== undefined) {
+      const deleteImgReq = new sql.Request(transaction);
+      deleteImgReq.input("roomId", sql.Int, id);
+      await deleteImgReq.query(`DELETE FROM RoomImages WHERE RoomId = @roomId`);
+
+      if (images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          const imgReq = new sql.Request(transaction);
+          imgReq.input("roomId", sql.Int, id);
+          imgReq.input("imageUrl", sql.NVarChar, images[i]);
+          imgReq.input("isPrimary", sql.Bit, i === 0 ? 1 : 0);
+
+          await imgReq.query(`
+            INSERT INTO RoomImages (RoomId, ImageUrl, IsPrimary)
+            VALUES (@roomId, @imageUrl, @isPrimary)
+          `);
+        }
+      }
+    }
+
+    await transaction.commit();
+    res.json({ message: "Cập nhật phòng thành công!" });
+  } catch (err) {
+    console.error(err);
+    await transaction.rollback();
+    res.status(500).json({ message: "Lỗi server khi cập nhật phòng" });
+  }
 };
 
 const deleteRoom = async (req, res) => {
-    const { id } = req.params;
-    const branchId = req.headers['x-branch-id'];
+  const { id } = req.params;
+  const branchId = req.headers["x-branch-id"];
 
-    if (!branchId) return res.status(400).json({ message: 'Thiếu thông tin chi nhánh.' });
+  if (!branchId)
+    return res.status(400).json({ message: "Thiếu thông tin chi nhánh." });
 
-    try {
-        const request = new sql.Request();
-        request.input('id', sql.Int, id);
-        request.input('branchId', sql.Int, branchId);
+  try {
+    const request = new sql.Request();
+    request.input("id", sql.Int, id);
+    request.input("branchId", sql.Int, branchId);
 
-        await request.query(`
-            UPDATE Rooms 
-            SET IsDelete = 1
-            WHERE Id = @id AND BranchId = @branchId
-        `);
+    const checkResult = await request.query(`
+      SELECT TOP 1 bd.Id, bd.Status
+      FROM BookingDetails bd
+      INNER JOIN Bookings b ON bd.BookingId = b.Id
+      WHERE bd.RoomId = @id
+        AND bd.Status IN ('InUse', 'Reserved')
+    `);
 
-        res.json({ message: 'Đã ngừng hoạt động phòng!' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Lỗi server khi xóa phòng' });
+    if (checkResult.recordset.length > 0) {
+      const status = checkResult.recordset[0].Status;
+      const message =
+        status === "InUse"
+          ? "Phòng đang có khách lưu trú, không thể ngừng hoạt động!"
+          : "Phòng đang có đơn đặt trước, không thể ngừng hoạt động!";
+      return res.status(400).json({ message });
     }
+
+    await request.query(`
+      UPDATE Rooms 
+      SET IsDelete = 1
+      WHERE Id = @id AND BranchId = @branchId
+    `);
+
+    res.json({ message: "Đã ngừng hoạt động phòng!" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi server khi xóa phòng" });
+  }
 };
 
 module.exports = {
